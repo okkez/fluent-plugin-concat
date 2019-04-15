@@ -27,68 +27,113 @@ Or install it yourself as:
 
     $ gem install fluent-plugin-concat
 
+## Plugin helpers
+
+* [timer](https://docs.fluentd.org/v1.0/articles/api-plugin-helper-timer)
+* [event_emitter](https://docs.fluentd.org/v1.0/articles/api-plugin-helper-event_emitter)
+
+* See also: [Filter Plugin Overview](https://docs.fluentd.org/v1.0/articles/filter-plugin-overview)
+
 ## Configuration
 
-**key** (string) (required)
+### key (string) (required)
 
 The key for part of multiline log.
 
-**separator** (string)
+### separator (string) (optional)
 
 The separator of lines.
-Default value is `"\n"`.
 
-**n\_lines** (integer)
+Default value: `"\n"`.
+
+### n\_lines (integer) (optional)
 
 The number of lines.
-This is exclusive with `multiline_start_regex`.
+This is exclusive with following parameters:
 
-**multiline\_start\_regexp**
+* `multiline_start_regexp`
+* `multiline_end_regexp`
+* `partial_key`
+
+### multiline\_start\_regexp (string) (optional)
 
 The regexp to match beginning of multiline.
-This is exclusive with `n_lines.`
+This is exclusive with following parameters:
 
-**multiline\_end\_regexp**
+* `n_lines`
+* `partial_key`
+
+### multiline\_end\_regexp (string) (optional)
 
 The regexp to match ending of multiline.
-This is exclusive with `n_lines.`
+This is exclusive with following parameters:
 
-**continuous\_line\_regexp**
+* `n_lines`
+* `partial_key`
+
+### continuous\_line\_regexp (string) (optional)
 
 The regexp to match continuous lines.
-This is exclusive with `n_lines.`
 
-**stream\_identity\_key** (string)
+### stream\_identity\_key (string) (optional)
 
-The key to determine which stream an event belongs to.
+The key to determine which stream an event belongs to
 
-**flush\_interval** (integer)
+### flush\_interval (time) (optional)
 
-The number of seconds after which the last received event log will be flushed.
-If specified 0, wait for next line forever.
+The interval between data flushes, 0 means disable timeout (wait next line forever).
 
-**timeout\_label** (string)
+Default value: `60`.
+
+### timeout\_label (string) (optional)
 
 The label name to handle events caused by timeout.
 
-**use\_first\_timestamp** (bool)
+### use\_first\_timestamp (bool) (optional)
 
 Use timestamp of first record when buffer is flushed.
-Default value is `false`.
 
-**partial\_key** (string)
+### partial\_key (string) (optional)
 
-The field name that is the reference to concatenate records
+The field name that is the reference to concatenate records.
+This is exclusive with following parameters:
 
-**partial\_value** (string)
+* `n_lines`
+* `multiline_start_regexp`
+* `multiline_end_regexp`
 
-The value stored in the field specified by partial_key that represent partial log
+### partial\_value (string) (optional)
 
-**keep\_partial\_key** (bool)
+The value stored in the field specified by partial_key that represent partial log.
 
-If true, keep partial_key in concatenated records
-Default value is `false`.
+### keep\_partial\_key (bool) (optional)
 
+If true, keep partial_key in concatenated records.
+
+Default value: `false`.
+
+### buffer_limit_size (size) (optional)
+
+The max size of each buffer
+
+Default value: `512000`.
+
+### buffer_overflow_method (enum) (optional)
+
+The method if overflow buffer
+
+Available values: `ignore`, `truncate`, `drop`, `new`
+
+* `ignore`
+  * Concatenate the current record in the buffer
+* `truncate`
+  * Drop the current record and flush the buffer
+* `drop`
+  * Drop the current record and clear the buffer
+* `new`
+  * Flush the buffer and store the current record in next buffer
+
+Default value: `ignore`.
 
 ## Usage
 

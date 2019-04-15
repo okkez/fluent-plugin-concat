@@ -59,7 +59,7 @@ class FilterConcatTest < Test::Unit::TestCase
     end
 
     test "either" do
-      assert_raise(Fluent::ConfigError.new("Either n_lines or multiline_start_regexp or multiline_end_regexp is required")) do
+      assert_raise(Fluent::ConfigError.new("Either n_lines, multiline_start_regexp, multiline_end_regexp, or partial_key is required")) do
         create_driver(<<-CONFIG)
           key message
         CONFIG
@@ -730,6 +730,124 @@ class FilterConcatTest < Test::Unit::TestCase
         line.chomp.gsub(/.+? (\[(?:error|info)\].+)/) {|m| $1 }
       end
       assert_equal(expected_logs, log_messages)
+      assert_equal(expected, filtered)
+    end
+  end
+
+  sub_test_case "overflow" do
+    test "ignore" do
+      config = <<-CONFIG
+        key message
+        partial_key partial_message
+        partial_value true
+        keep_partial_key false
+        buffer_limit_size 10
+        buffer_overflow_method ignore
+      CONFIG
+      messages = [
+        { "container_id" => "1", "message" => "start", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 1", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 2", "partial_message" => "true" },
+        { "container_id" => "1", "message" => "end", "partial_message" => "false" },
+        { "container_id" => "1", "message" => "start", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 3", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 4", "partial_message" => "true" },
+        { "container_id" => "1", "message" => "end", "partial_message" => "false" },
+      ]
+      filtered = filter(config, messages, wait: 3)
+      expected = [
+        { "container_id" => "1", "message" => "start\n message 1\n message 2\nend" },
+        { "container_id" => "1", "message" => "start\n message 3\n message 4\nend" },
+      ]
+      assert_equal(expected, filtered)
+    end
+
+    test "truncate" do
+      config = <<-CONFIG
+        key message
+        partial_key partial_message
+        partial_value true
+        keep_partial_key false
+        buffer_limit_size 60
+        buffer_overflow_method truncate
+      CONFIG
+      messages = [
+        { "container_id" => "1", "message" => "start", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 1", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 2", "partial_message" => "true" },
+        { "container_id" => "1", "message" => "end", "partial_message" => "false" },
+        { "container_id" => "1", "message" => "start", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 3", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 4", "partial_message" => "true" },
+        { "container_id" => "1", "message" => "end", "partial_message" => "false" },
+      ]
+      filtered = filter(config, messages, wait: 3)
+      expected = [
+        { "container_id" => "1", "message" => "start" },
+        { "container_id" => "1", "message" => " message 2" },
+        { "container_id" => "1", "message" => "start" },
+        { "container_id" => "1", "message" => " message 4" },
+      ]
+      assert_equal(expected, filtered)
+    end
+
+    test "drop" do
+      config = <<-CONFIG
+        key message
+        partial_key partial_message
+        partial_value true
+        keep_partial_key false
+        buffer_limit_size 100
+        buffer_overflow_method drop
+      CONFIG
+      messages = [
+        { "container_id" => "1", "message" => "start", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 1", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 2", "partial_message" => "true" },
+        { "container_id" => "1", "message" => "end", "partial_message" => "false" },
+        { "container_id" => "1", "message" => "start", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 3", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 4", "partial_message" => "true" },
+        { "container_id" => "1", "message" => "end", "partial_message" => "false" },
+      ]
+      filtered = filter(config, messages, wait: 3)
+      expected = [
+        { "container_id" => "1", "message" => "end" },
+        { "container_id" => "1", "message" => "end" },
+      ]
+      assert_equal(expected, filtered)
+    end
+
+    test "new" do
+      config = <<-CONFIG
+        key message
+        partial_key partial_message
+        partial_value true
+        keep_partial_key false
+        buffer_limit_size 90
+        buffer_overflow_method new
+      CONFIG
+      messages = [
+        { "container_id" => "1", "message" => "start", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 1", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 2", "partial_message" => "true" },
+        { "container_id" => "1", "message" => "end", "partial_message" => "false" },
+        { "container_id" => "1", "message" => "start", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 3", "partial_message" => "true" },
+        { "container_id" => "1", "message" => " message 4", "partial_message" => "true" },
+        { "container_id" => "1", "message" => "end", "partial_message" => "false" },
+      ]
+      filtered = filter(config, messages, wait: 3)
+      expected = [
+        { "container_id" => "1", "message" => "start" },
+        { "container_id" => "1", "message" => " message 1" },
+        { "container_id" => "1", "message" => " message 2" },
+        { "container_id" => "1", "message" => "end" },
+        { "container_id" => "1", "message" => "start" },
+        { "container_id" => "1", "message" => " message 3" },
+        { "container_id" => "1", "message" => " message 4" },
+        { "container_id" => "1", "message" => "end" },
+      ]
       assert_equal(expected, filtered)
     end
   end
